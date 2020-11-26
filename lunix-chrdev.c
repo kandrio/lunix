@@ -102,8 +102,20 @@ static int lunix_chrdev_open(struct inode *inode, struct file *filp)
 	 * Associate this open file with the relevant sensor based on
 	 * the minor number of the device node [/dev/sensor<NO>-<TYPE>]
 	 */
+
+	unsigned int minorNum = MINOR(inode->i_rdev);
 	
 	/* Allocate a new Lunix character device private state structure */
+
+	state = malloc(sizeof(struct lunix_chrdev_state_struct));
+
+	state->type=minorNum;
+	//state->sensor = ??? kati apo linux_sensors.c???
+	state->buf_lim=0;
+	state->buf_timestamp=0;
+	sem_init(&state->lock, 0, 1); //den xerw to count tbh
+
+	filp->preivate_data = state;
 	/* ? */
 out:
 	debug("leaving, with ret = %d\n", ret);
