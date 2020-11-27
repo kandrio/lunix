@@ -36,7 +36,7 @@ int __init lunix_module_init(void)
 		lunix_sensor_cnt);
 
 	ret = -ENOMEM;
-	lunix_sensors = kzalloc(sizeof(*) * lunix_sensor_cnt, GFP_KERNEL);
+	lunix_sensors = kzalloc(sizeof(*lunix_sensors) * lunix_sensor_cnt, GFP_KERNEL);
 	if (!lunix_sensors) {
 		printk(KERN_ERR "Failed to allocate memory for Lunix sensors\n");
 		goto out;

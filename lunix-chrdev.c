@@ -104,15 +104,15 @@ static int lunix_chrdev_open(struct inode *inode, struct file *filp)
 	 * the minor number of the device node [/dev/sensor<NO>-<TYPE>]
 	 */
 
-	minorNum = iminor(inode);
+	/*minorNum = iminor(inode);
 	type = minorNum & 3; //Each minor number refers to a specific type of measurement
 	//minorNum may have other digits set to 1 so we extract the 3 last digits for safety
-
+	*/
 	if (type == N_LUNIX_MSR) //N_LUNIX_MSR is the number of different measurment types (see lunix-chrdev.h)
 		goto out;
 
 	/* Allocate a new Lunix character device private state structure */
-	state  = malloc(sizeof(struct lunix_chrdev_state_struct));
+	/*state  = malloc(sizeof(struct lunix_chrdev_state_struct));
 	
 	state->type = type;
 	state->sensor = ... //What is this  (???)
@@ -121,7 +121,7 @@ static int lunix_chrdev_open(struct inode *inode, struct file *filp)
 	sem_init(&state->lock, 0, 1); //What is this (???)
 
 	filp->private_data = state; //This will probably be used by the other file operations of 
-	//the driver in order to save and update data. 
+	//the driver in order to save and update data. */
 out:
 	debug("leaving, with ret = %d\n", ret);
 	return ret;
