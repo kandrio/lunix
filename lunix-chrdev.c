@@ -92,7 +92,7 @@ static int lunix_chrdev_open(struct inode *inode, struct file *filp)
 	/* Declarations */
 	/* ? */
 	int ret;
-	unsigned int minorNum, type;
+	unsigned int minorNum, type, sensor;
 
 	debug("entering\n");
 	ret = -ENODEV;  //ENODEV means "Error, no device."
@@ -104,24 +104,28 @@ static int lunix_chrdev_open(struct inode *inode, struct file *filp)
 	 * the minor number of the device node [/dev/sensor<NO>-<TYPE>]
 	 */
 
-	/*minorNum = iminor(inode);
-	type = minorNum & 3; //Each minor number refers to a specific type of measurement
-	//minorNum may have other digits set to 1 so we extract the 3 last digits for safety
-	*/
+	minorNum = iminor(inode);
+	
+	/*Each minor number refers to a specific type of measurement
+	minorNum may have other digits set to 1 so we extract the 3 last digits for safety*/
+	type = minorNum & 3; 
+	sensor = minorNum/8; //Number of sensor device
 	if (type == N_LUNIX_MSR) //N_LUNIX_MSR is the number of different measurment types (see lunix-chrdev.h)
 		goto out;
 
 	/* Allocate a new Lunix character device private state structure */
-	/*state  = malloc(sizeof(struct lunix_chrdev_state_struct));
+	state = kmalloc(sizeof(struct lunix_chrdev_state_struct));
 	
 	state->type = type;
-	state->sensor = ... //What is this  (???)
+	state->sensor = &lunix_sensors[sensor] //A lunix_sensor_struct for each sensor
 	state->buf_lim = 0; //What is this (???)
 	state->buf_timestamp = 0 ; //I guess this is for checking if new data has come
-	sem_init(&state->lock, 0, 1); //What is this (???)
+	sema_init(&state->lock, 1); //Initialize semaphore
 
-	filp->private_data = state; //This will probably be used by the other file operations of 
-	//the driver in order to save and update data. */
+	/*This will probably be used by the other file operations of 
+	the driver in order to save and update data.*/
+	filp->private_data = state; 
+	
 out:
 	debug("leaving, with ret = %d\n", ret);
 	return ret;
