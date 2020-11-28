@@ -40,9 +40,14 @@ struct cdev lunix_chrdev_cdev;
 static int lunix_chrdev_state_needs_refresh(struct lunix_chrdev_state_struct *state)
 {
 	struct lunix_sensor_struct *sensor;
-	
+
 	WARN_ON ( !(sensor = state->sensor));
 	/* ? */
+
+	/* If the last time that the user requested data differs from the last time that
+	new data came, then the chrdev needs refresh */
+	if (state->buf_timestamp != sensor->msr_data[state->type]->last_update)
+		return 1;
 
 	/* The following return is bogus, just for the stub to compile */
 	return 0; /* ? */
@@ -58,6 +63,13 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
 	struct lunix_sensor_struct *sensor;
 	
 	debug("leaving\n");
+
+	/* Read() checks if --EAGAIN is returned to put processes to sleep*/
+	if(!lunix_chrdev_state_needs_refresh(state)) {
+		return -EAGAIN;
+	}
+
+	
 
 	/*
 	 * Grab the raw data quickly, hold the
@@ -125,7 +137,7 @@ static int lunix_chrdev_open(struct inode *inode, struct file *filp)
 	/*This will probably be used by the other file operations of 
 	the driver in order to save and update data.*/
 	filp->private_data = state; 
-	
+
 out:
 	debug("leaving, with ret = %d\n", ret);
 	return ret;
@@ -134,6 +146,8 @@ out:
 static int lunix_chrdev_release(struct inode *inode, struct file *filp)
 {
 	/* ? */
+	kfree(filp->private_data);
+	debug("Release filp private_data successfully.")
 	return 0;
 }
 
