@@ -61,15 +61,17 @@ static int lunix_chrdev_state_needs_refresh(struct lunix_chrdev_state_struct *st
 static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
 {
 	struct lunix_sensor_struct *sensor;
+	sensor = state->sensor;
 	
 	debug("leaving\n");
 
-	/* Read() checks if --EAGAIN is returned to put processes to sleep*/
+	/* Read() checks if '-EAGAIN' is returned to put processes to sleep*/
 	if(!lunix_chrdev_state_needs_refresh(state)) {
 		return -EAGAIN;
 	}
 
-	
+	spin_lock(&sensor->lock); 
+	state->buf_data[] = sensor->msr_data[state->type]->values[0]
 
 	/*
 	 * Grab the raw data quickly, hold the
