@@ -61,6 +61,7 @@ static int lunix_chrdev_state_needs_refresh(struct lunix_chrdev_state_struct *st
 static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
 {
 	struct lunix_sensor_struct *sensor;
+	
 	sensor = state->sensor;
 	
 	debug("leaving\n");
@@ -70,27 +71,46 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
 		return -EAGAIN;
 	}
 
-	spin_lock(&sensor->lock); 
-	state->buf_data[] = sensor->msr_data[state->type]->values[0]
-
 	/*
 	 * Grab the raw data quickly, hold the
 	 * spinlock for as little as possible.
 	 */
-	/* ? */
+	spin_lock(&sensor->lock); 
+	uint32_t newdata = sensor->msr_data[state->type]->values[0];
+	state->buf_timestamp = sensor->msr_data[state->type]->last_update;
+	spin_lock(&sensor->lock);
 	/* Why use spinlocks? See LDD3, p. 119 */
-
-	/*
-	 * Any new data available?
-	 */
-	/* ? */
+	
+	long lookup;
+	switch (state->type) {
+		case BATT:
+			lookup = lookup_voltage[newdata];
+			break;
+		case TEMP:
+			lookup = lookup_temperature[newdata];
+			break;
+		case LIGHT:
+			lookup = lookup_light[newdata];
+			break;
+		case N_LUNIX_MSR:
+			return -EFAULT;
+			break;		
+	}
 
 	/*
 	 * Now we can take our time to format them,
 	 * holding only the private state semaphore
 	 */
+    long decimal = lookup / 1000;
+	long fractional = lookup % 1000; 
 
-	/* ? */
+	if (lookup < 0){
+		sprintf(state->buf_data, "-%ld.%ld", (-1)*decimal, (-1)*fractional);
+	} else {
+		sprintf(state->buf_data, "%ld.%ld", decimal, fractional);
+	}
+	
+	state->buf_lim = strlen(state->buf_data);
 
 	debug("leaving\n");
 	return 0;
