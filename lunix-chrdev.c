@@ -4,7 +4,8 @@
  * Implementation of character devices
  * for Lunix:TNG
  *
- * < Your name here >
+ * Konstantinos Vosinas
+ * Konstantinos Andriopoulos
  *
  */
 
@@ -120,13 +121,11 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
 
 static int lunix_chrdev_open(struct inode *inode, struct file *filp)
 {
-	/* Declarations */
-	/* ? */
 	int ret;
-	unsigned int minorNum, type, sensor;
+	unsigned int minorNum, type, sensorNum;
 
 	debug("entering\n");
-	ret = -ENODEV;  //ENODEV means "Error, no device."
+	ret = -ENODEV;  //ENODEV stands for "Error! No device."
 	if ((ret = nonseekable_open(inode, filp)) < 0)
 		goto out;
 
@@ -134,27 +133,28 @@ static int lunix_chrdev_open(struct inode *inode, struct file *filp)
 	 * Associate this open file with the relevant sensor based on
 	 * the minor number of the device node [/dev/sensor<NO>-<TYPE>]
 	 */
-
 	minorNum = iminor(inode);
 	
 	/*Each minor number refers to a specific type of measurement
 	minorNum may have other digits set to 1 so we extract the 3 last digits for safety*/
-	type = minorNum & 3; 
-	sensor = minorNum/8; //Number of sensor device
-	if (type == N_LUNIX_MSR) //N_LUNIX_MSR is the number of different measurment types (see lunix-chrdev.h)
+	type = minorNum % 8;      //Type of measurement (3 different measurement types allowed, 0 to 2)
+	sensorNum = minorNum / 8; //Number of sensor device
+	if (type >= N_LUNIX_MSR)  //N_LUNIX_MSR is the number of different measurment types (see lunix-chrdev.h)
 		goto out;
 
-	/* Allocate a new Lunix character device private state structure */
-	state = kmalloc(sizeof(struct lunix_chrdev_state_struct));
+	/* Allocate a new Lunix chr dev private state structure */
+	state = kmalloc(sizeof(struct lunix_chrdev_state_struct), GFP_KERNEL);
+	/* GFP_KERNEL flag means that the process can go to sleep while the kernel is looking
+	for the memory pages to allocate */
 	
 	state->type = type;
-	state->sensor = &lunix_sensors[sensor] //A lunix_sensor_struct for each sensor
-	state->buf_lim = 0; //What is this (???)
-	state->buf_timestamp = 0 ; //I guess this is for checking if new data has come
+	state->sensor = &lunix_sensors[sensorNum]
+	state->buf_lim = 0; 		//Length of state->buf_data
+	state->buf_timestamp = 0;
 	sema_init(&state->lock, 1); //Initialize semaphore
 
-	/*This will probably be used by the other file operations of 
-	the driver in order to save and update data.*/
+	/*This will be used by the other file operations of 
+	the driver in order to read and update data.*/
 	filp->private_data = state; 
 
 out:
@@ -166,7 +166,7 @@ static int lunix_chrdev_release(struct inode *inode, struct file *filp)
 {
 	/* ? */
 	kfree(filp->private_data);
-	debug("Release filp private_data successfully.")
+	debug("released private_data successfully \n")
 	return 0;
 }
 
