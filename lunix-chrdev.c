@@ -194,25 +194,79 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
 	 * updated by actual sensor data (i.e. we need to report
 	 * on a "fresh" measurement, do so)
 	 */
+
+
 	/* Lock? */
+
+	// Check if state semaphore is down, down interruptible wakes up not only when unlocked,
+	// but also when sig is received (p27)
+	if(down_interruptible(&state->lock))
+		return -ERESTARTSYS;
+	
 	/* 'lunix_chrdev_state_update()' must be called with the chr_dev state lock held */
+	// if there are data, return them to the user
+	// otherwise sleep, droping the semaphore
 	if (*f_pos == 0) {
 		while (lunix_chrdev_state_update(state) == -EAGAIN) {
 			/* ? */
 			/* The process needs to sleep */
 			/* See LDD3, page 153 for a hint */
+			// release lock, wait for updates
+			up(&state->lock);
+
+			// quick check if non blocking signal is sent ???
+			if(filp->f_flags & O_NONBLOCK)
+				return -EAGAIN;
+
+			// sleep, using queue, can be interrupted by signals
+			// case inside if: received signal, letting upper layers of fs deal with it
+			if(wait_event_interruptible(sensor->wq, lunix_chrdev_state_needs_refresh(state)))
+				return -ERESTARTSYS;
+			
+			// otherwise, in case someone won the race to the new data, so we must
+			// aquire semaphore lock, if not we can't read
+			// the following ensues that when leaving the loop, we can read/ we have the semaphore
+
+			if(down_interruptible(&state->lock))
+				return -ERESTARTSYS;
+			
 		}
 	}
 
+	// got new data, got semaphore
+
 	/* End of file */
 	/* ? */
-	
+
+
+	// went over buffer, return 0
+	if (*f_pos >= state->buf_lim){
+		f_pos=0;
+		ret = 0;
+		goto out;
+	}
+
 	/* Determine the number of cached bytes to copy to userspace */
 	/* ? */
 
+	// if pos + cnt, bytes requested by read, are greater than the read file (buf_lim)
+	// change cnt, to as many bytes as possible
+
+	cnt = min(cnt, (size_t) state->buf_lim - *f_pos );
+
+	if(copy_to_user(usrbuf, state->buf_data + *f_pos, cnt)){
+		ret = -EFAULT;
+		goto out;
+	}
+
+	*f_pos += cnt;
+	ret = cnt;
 	/* Auto-rewind on EOF mode? */
 	/* ? */
+
+	if(state->buf_lim == *f_pos) *f_pos = 0;
 out:
+	up(&state->lock);
 	/* Unlock? */
 	return ret;
 }
