@@ -41,16 +41,15 @@ static int lunix_chrdev_state_needs_refresh(struct lunix_chrdev_state_struct *st
 {
 	struct lunix_sensor_struct *sensor;
 
+	/* Prints registers and stack trace in case of bug */
 	WARN_ON ( !(sensor = state->sensor));
-	/* ? */
 
-	/* If the last time that the user requested data differs from the last time that
-	new data came, then the chrdev needs refresh */
+	/* If the last data that were read are not the latest data on the lunix 
+	sensor buffer, then the state needs refresh */
 	if (state->buf_timestamp != sensor->msr_data[state->type]->last_update)
 		return 1;
 
-	/* The following return is bogus, just for the stub to compile */
-	return 0; /* ? */
+	return 0;
 }
 
 /*
@@ -61,27 +60,28 @@ static int lunix_chrdev_state_needs_refresh(struct lunix_chrdev_state_struct *st
 static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
 {
 	struct lunix_sensor_struct *sensor;
-	
-	sensor = state->sensor;
-	
-	debug("leaving\n");
+	uint32_t newdata, last_update;
+	long lookup;
 
-	/* Read() checks if '-EAGAIN' is returned to put processes to sleep*/
+	WARN_ON (!(sensor = state->sensor));
+	
+	/* read() syscall checks if '-EAGAIN' is returned to put processes to sleep*/
 	if(!lunix_chrdev_state_needs_refresh(state)) {
 		return -EAGAIN;
 	}
 
-	/*
-	 * Grab the raw data quickly, hold the
-	 * spinlock for as little as possible.
-	 */
-	spin_lock(&sensor->lock); 
-	uint32_t newdata = sensor->msr_data[state->type]->values[0];
-	state->buf_timestamp = sensor->msr_data[state->type]->last_update;
-	spin_lock(&sensor->lock);
-	/* Why use spinlocks? See LDD3, p. 119 */
+    debug("locking the sensor spinlock\n");
 	
-	long lookup;
+	spin_lock(&sensor->lock);		
+	/* Grabbing  the raw data quickly, and holding the spinlock for as little as possible. */
+	newdata = sensor->msr_data[state->type]->values[0];
+	last_update = sensor->msr_data[state->type]->last_update;
+	spin_unlock(&sensor->lock);
+    
+	debug("finished with the sensor spinlock\n");
+
+	state->buf_timestamp = last_update;
+	
 	switch (state->type) {
 		case BATT:
 			lookup = lookup_voltage[newdata];
@@ -94,7 +94,6 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
 			break;
 		case N_LUNIX_MSR:
 			return -EFAULT;
-			break;		
 	}
 
 	/*
@@ -105,14 +104,12 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
 	long fractional = lookup % 1000; 
 
 	if (lookup < 0){
-		sprintf(state->buf_data, "-%ld.%ld", (-1)*decimal, (-1)*fractional);
+		state->buf_lim = sprintf(state->buf_data, "-%ld.%ld", (-1)*decimal, (-1)*fractional);
 	} else {
-		sprintf(state->buf_data, "%ld.%ld", decimal, fractional);
+		state->buf_lim = sprintf(state->buf_data, "%ld.%ld", decimal, fractional);
 	}
 	
-	state->buf_lim = strlen(state->buf_data);
-
-	debug("leaving\n");
+	debug("leaving lunix_chrdev_state_update()\n");
 	return 0;
 }
 
@@ -192,12 +189,13 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
 	sensor = state->sensor;
 	WARN_ON(!sensor);
 
-	/* Lock? */
 	/*
 	 * If the cached character device state needs to be
 	 * updated by actual sensor data (i.e. we need to report
-	 * on a "fresh" measurement, do so
+	 * on a "fresh" measurement, do so)
 	 */
+	/* Lock? */
+	/* 'lunix_chrdev_state_update()' must be called with the chr_dev state lock held */
 	if (*f_pos == 0) {
 		while (lunix_chrdev_state_update(state) == -EAGAIN) {
 			/* ? */
