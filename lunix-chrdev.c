@@ -148,7 +148,7 @@ static int lunix_chrdev_open(struct inode *inode, struct file *filp)
 		goto out;
 
 	/* Allocate a new Lunix chr dev private state structure */
-	state = kmalloc(sizeof(struct lunix_chrdev_state_struct), GFP_KERNEL);
+	struct lunix_chrdev_state_struct *state = kmalloc(sizeof(struct lunix_chrdev_state_struct), GFP_KERNEL);
 	
 	ret = -ENOMEM;
 	if(!state){
@@ -160,7 +160,7 @@ static int lunix_chrdev_open(struct inode *inode, struct file *filp)
 	for the memory pages to allocate */
 	
 	state->type = type;
-	state->sensor = &lunix_sensors[sensorNum]
+	state->sensor = &lunix_sensors[sensorNum];
 	state->buf_lim = 0; 		//Length of state->buf_data
 	state->buf_timestamp = 0;
 	sema_init(&state->lock, 1); //Initialize semaphore
@@ -178,7 +178,7 @@ static int lunix_chrdev_release(struct inode *inode, struct file *filp)
 {
 	/* ? */
 	kfree(filp->private_data);
-	debug("released private_data successfully \n")
+	debug("released private_data successfully \n");
 	return 0;
 }
 
@@ -323,7 +323,7 @@ int lunix_chrdev_init(void)
 	}	
 	/* ? */
 	/* cdev_add? */
-	ret = cden_add(&lunix_chrdev_cdev, dev_no, lunix_minor_cnt);
+	ret = cdev_add(&lunix_chrdev_cdev, dev_no, lunix_minor_cnt);
 	if (ret < 0) {
 		debug("failed to add character device\n");
 		goto out_with_chrdev_region;
