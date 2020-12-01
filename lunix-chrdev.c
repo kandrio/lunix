@@ -259,7 +259,10 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
 	// if pos + cnt, bytes requested by read, are greater than the read file (buf_lim)
 	// change cnt, to as many bytes as possible
 
-	cnt = min(cnt, (size_t) state->buf_lim - *f_pos );
+	if (cnt > (size_t) state->buf_lim - *f_pos) {
+		cnt = (size_t) state->buf_lim - *f_pos;
+	}
+	//cnt = min(cnt, (size_t) state->buf_lim - *f_pos );
 
 	if(copy_to_user(usrbuf, state->buf_data + *f_pos, cnt)){
 		ret = -EFAULT;
