@@ -139,11 +139,23 @@ static int lunix_chrdev_open(struct inode *inode, struct file *filp)
 	minorNum may have other digits set to 1 so we extract the 3 last digits for safety*/
 	type = minorNum % 8;      //Type of measurement (3 different measurement types allowed, 0 to 2)
 	sensorNum = minorNum / 8; //Number of sensor device
+
+
+
+	// this should return an error code, right now it would return 0, meaning open worked
+
 	if (type >= N_LUNIX_MSR)  //N_LUNIX_MSR is the number of different measurment types (see lunix-chrdev.h)
 		goto out;
 
 	/* Allocate a new Lunix chr dev private state structure */
 	state = kmalloc(sizeof(struct lunix_chrdev_state_struct), GFP_KERNEL);
+	
+	ret = -ENOMEM;
+	if(!state){
+		debug("couldn't allocate memmory\n");
+		goto out;
+	}
+	
 	/* GFP_KERNEL flag means that the process can go to sleep while the kernel is looking
 	for the memory pages to allocate */
 	
@@ -156,7 +168,7 @@ static int lunix_chrdev_open(struct inode *inode, struct file *filp)
 	/*This will be used by the other file operations of 
 	the driver in order to read and update data.*/
 	filp->private_data = state; 
-
+	ret = 0;
 out:
 	debug("leaving, with ret = %d\n", ret);
 	return ret;
