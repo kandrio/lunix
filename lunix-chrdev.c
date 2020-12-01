@@ -316,12 +316,14 @@ int lunix_chrdev_init(void)
 	dev_no = MKDEV(LUNIX_CHRDEV_MAJOR, 0);
 	/* ? */
 	/* register_chrdev_region? */
+	ret = register_chrdev_region(dev_no, lunix_minor_cnt, "Lunix-Sensors");
 	if (ret < 0) {
 		debug("failed to register region, ret = %d\n", ret);
 		goto out;
 	}	
 	/* ? */
 	/* cdev_add? */
+	ret = cden_add(&lunix_chrdev_cdev, dev_no, lunix_minor_cnt);
 	if (ret < 0) {
 		debug("failed to add character device\n");
 		goto out_with_chrdev_region;
