@@ -105,9 +105,9 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
 	long fractional = lookup % 1000; 
 
 	if (lookup < 0){
-		state->buf_lim = sprintf(state->buf_data, "-%ld.%ld", (-1)*decimal, (-1)*fractional);
+		state->buf_lim = sprintf(state->buf_data, "-%ld.%ld\n", (-1)*decimal, (-1)*fractional);
 	} else {
-		state->buf_lim = sprintf(state->buf_data, "%ld.%ld", decimal, fractional);
+		state->buf_lim = sprintf(state->buf_data, "%ld.%ld\n", decimal, fractional);
 	}
 	
 	debug("leaving lunix_chrdev_state_update()\n");
