@@ -126,9 +126,9 @@ static int lunix_chrdev_open(struct inode *inode, struct file *filp)
 
 	debug("entering\n");
 	ret = -ENODEV;
-	if ((ret = nonseekable_open(inode, filp)) < 0)
+	if ((ret = nonseekable_open(inode, filp)) < 0) {
 		goto out;
-
+	}
 	/*
 	 * Associate this open file with the relevant sensor based on
 	 * the minor number of the device node [/dev/sensor<NO>-<TYPE>]
@@ -140,10 +140,10 @@ static int lunix_chrdev_open(struct inode *inode, struct file *filp)
 	type = minorNum % 8;      //Type of measurement (3 different measurement types allowed, 0 to 2)
 	sensorNum = minorNum / 8; //Number of the sensor device
 
-	if (type >= N_LUNIX_MSR)  //N_LUNIX_MSR is the number of different measurment types (see lunix-chrdev.h)
+	if (type >= N_LUNIX_MSR) {  //N_LUNIX_MSR is the number of different measurment types (see lunix-chrdev.h)
 		ret = -EINVAL;
 		goto out;
-
+	}
 	/* Allocate a new Lunix chr dev state structure */
 	struct lunix_chrdev_state_struct *state = kmalloc(sizeof(struct lunix_chrdev_state_struct), GFP_KERNEL);
 	/* The GFP_KERNEL flag means that the process can go to sleep while the kernel is searching
@@ -274,7 +274,8 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
 	/* Auto-rewind on EOF mode? */
 	/* ? */
 
-	if(state->buf_lim == *f_pos) *f_pos = 0;
+	if(state->buf_lim == *f_pos) 
+		*f_pos = 0;
 out:
 	up(&state->lock);
 	/* Unlock? */
