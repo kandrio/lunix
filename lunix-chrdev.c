@@ -125,7 +125,7 @@ static int lunix_chrdev_open(struct inode *inode, struct file *filp)
 	unsigned int minorNum, type, sensorNum;
 
 	debug("entering\n");
-	ret = -ENODEV;  //ENODEV stands for "Error! No device."
+	ret = -ENODEV;
 	if ((ret = nonseekable_open(inode, filp)) < 0)
 		goto out;
 
@@ -138,26 +138,22 @@ static int lunix_chrdev_open(struct inode *inode, struct file *filp)
 	/*Each minor number refers to a specific type of measurement
 	minorNum may have other digits set to 1 so we extract the 3 last digits for safety*/
 	type = minorNum % 8;      //Type of measurement (3 different measurement types allowed, 0 to 2)
-	sensorNum = minorNum / 8; //Number of sensor device
-
-
-
-	// this should return an error code, right now it would return 0, meaning open worked
+	sensorNum = minorNum / 8; //Number of the sensor device
 
 	if (type >= N_LUNIX_MSR)  //N_LUNIX_MSR is the number of different measurment types (see lunix-chrdev.h)
+		ret = -EINVAL;
 		goto out;
 
-	/* Allocate a new Lunix chr dev private state structure */
+	/* Allocate a new Lunix chr dev state structure */
 	struct lunix_chrdev_state_struct *state = kmalloc(sizeof(struct lunix_chrdev_state_struct), GFP_KERNEL);
-	
-	ret = -ENOMEM;
+	/* The GFP_KERNEL flag means that the process can go to sleep while the kernel is searching
+	for the memory pages to allocate */
+
 	if(!state){
+		ret = -ENOMEM;
 		debug("couldn't allocate memmory\n");
 		goto out;
 	}
-	
-	/* GFP_KERNEL flag means that the process can go to sleep while the kernel is looking
-	for the memory pages to allocate */
 	
 	state->type = type;
 	state->sensor = &lunix_sensors[sensorNum];
@@ -176,9 +172,8 @@ out:
 
 static int lunix_chrdev_release(struct inode *inode, struct file *filp)
 {
-	/* ? */
 	kfree(filp->private_data);
-	debug("released private_data successfully \n");
+	debug("released file structure private data successfully \n");
 	return 0;
 }
 
