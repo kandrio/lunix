@@ -62,7 +62,7 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
 {
 	struct lunix_sensor_struct *sensor;
 	uint32_t newdata, last_update;
-	long lookup;
+	long lookup = 0;
 
 	WARN_ON (!(sensor = state->sensor));
 	
