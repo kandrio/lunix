@@ -64,7 +64,7 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
 
 	WARN_ON (!(sensor = state->sensor));
 	
-	/* read() syscall checks if '-EAGAIN' is returned to put processes to sleep*/
+	/* lunix_chrdev_read() checks if '-EAGAIN' is returned to put processes to sleep*/
 	if(!lunix_chrdev_state_needs_refresh(state)) {
 		return -EAGAIN;
 	}
@@ -209,52 +209,38 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
 		return -ERESTARTSYS; // If interrupted, the read() syscall can be restarted with the same arguments,
 							 // after the interrupt is handled.
 	
-	/* 'lunix_chrdev_state_update()' must be called with the chr_dev state lock held */
-	// if there are data, return them to the user
+	/* 'lunix_chrdev_state_update()' must be called while the chr_dev state lock is held */
+	// If there are data, return them to the user
 	// otherwise sleep, droping the semaphore
 	if (*f_pos == 0) {
 		while (lunix_chrdev_state_update(state) == -EAGAIN) {
-			/* ? */
-			/* The process needs to sleep */
 			/* See LDD3, page 153 for a hint */
-			// release lock, wait for updates
+
+			// No need for an updates yet. 
+			// Release lock, so that other processes can access 'state'. 
 			up(&state->lock);
 
-			// quick check if non blocking signal is sent ???
-			if(filp->f_flags & O_NONBLOCK)
-				return -EAGAIN;
-
-			// sleep, using queue, can be interrupted by signals
-			// case inside if: received signal, letting upper layers of fs deal with it
+			// Sleep, using queue, until an update event wakes you up (new data arrived).
 			if(wait_event_interruptible(sensor->wq, lunix_chrdev_state_needs_refresh(state)))
 				return -ERESTARTSYS;
 			
-			// otherwise, in case someone won the race to the new data, so we must
-			// aquire semaphore lock, if not we can't read
-			// the following ensues that when leaving the loop, we can read/ we have the semaphore
-
+			// Finally awake! Get access to 'state' again, and go for a state update.
 			if(down_interruptible(&state->lock))
 				return -ERESTARTSYS;
 			
 		}
 	}
 
-	// got new data, got semaphore
-
-	/* End of file */
-	/* ? */
-
 	ssize_t ret;
 
 	// went over buffer, return 0
 	if (*f_pos >= state->buf_lim){
-		f_pos=0;
-		ret = 0;
+		f_pos = 0;
+		ret   = 0;
 		goto out;
 	}
 
 	/* Determine the number of cached bytes to copy to userspace */
-	/* ? */
 
 	// if pos + cnt, bytes requested by read, are greater than the read file (buf_lim)
 	// change cnt, to as many bytes as possible
