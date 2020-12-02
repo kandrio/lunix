@@ -43,7 +43,7 @@ static int lunix_chrdev_state_needs_refresh(struct lunix_chrdev_state_struct *st
 	struct lunix_sensor_struct *sensor;
 
 	/* Prints registers and stack trace in case of bug */
-	WARN_ON ( !(sensor = state->sensor));
+	WARN_ON (!(sensor = state->sensor));
 
 	/* If the last data that were read are not the latest data on the lunix 
 	sensor buffer, then the state needs refresh */
@@ -61,8 +61,6 @@ static int lunix_chrdev_state_needs_refresh(struct lunix_chrdev_state_struct *st
 static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
 {
 	struct lunix_sensor_struct *sensor;
-	uint32_t newdata, last_update;
-	long lookup = 0;
 
 	WARN_ON (!(sensor = state->sensor));
 	
@@ -71,7 +69,10 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
 		return -EAGAIN;
 	}
 
-    debug("locking the sensor spinlock\n");
+	uint32_t newdata, last_update;
+	long lookup = 0;
+
+    debug("locking sensor spinlock\n");
 	
 	spin_lock(&sensor->lock);		
 	/* Grabbing  the raw data quickly, and holding the spinlock for as little as possible. */
@@ -79,7 +80,7 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
 	last_update = sensor->msr_data[state->type]->last_update;
 	spin_unlock(&sensor->lock);
     
-	debug("finished with the sensor spinlock\n");
+	debug("unlocking sensor spinlock\n");
 
 	state->buf_timestamp = last_update;
 	
@@ -101,8 +102,11 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
 	 * Now we can take our time to format them,
 	 * holding only the private state semaphore
 	 */
-    long decimal = lookup / 1000;
-	long fractional = lookup % 1000; 
+    
+	long decimal, fractional;
+	
+	decimal = lookup / 1000;
+	fractional = lookup % 1000; 
 
 	if (lookup < 0){
 		state->buf_lim = sprintf(state->buf_data, "-%ld.%ld\n", (-1)*decimal, (-1)*fractional);
@@ -110,7 +114,7 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
 		state->buf_lim = sprintf(state->buf_data, "%ld.%ld\n", decimal, fractional);
 	}
 	
-	debug("leaving lunix_chrdev_state_update()\n");
+	debug("leaving update\n");
 	return 0;
 }
 
