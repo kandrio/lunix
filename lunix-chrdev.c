@@ -191,7 +191,6 @@ static long lunix_chrdev_ioctl(struct file *filp, unsigned int cmd, unsigned lon
 
 static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t cnt, loff_t *f_pos)
 {
-	ssize_t ret;
 
 	struct lunix_sensor_struct *sensor;
 	struct lunix_chrdev_state_struct *state;
@@ -202,19 +201,13 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
 	sensor = state->sensor;
 	WARN_ON(!sensor);
 
-	/*
-	 * If the cached character device state needs to be
-	 * updated by actual sensor data (i.e. we need to report
-	 * on a "fresh" measurement, do so)
-	 */
 
+	/* Check if state semaphore is down. down_interruptible() wakes up the user process not only 
+	when the semaphore gets unlocked, but also when a SIGNAL is received (p27, lunix guide) */
 
-	/* Lock? */
-
-	// Check if state semaphore is down, down interruptible wakes up not only when unlocked,
-	// but also when sig is received (p27)
 	if(down_interruptible(&state->lock))
-		return -ERESTARTSYS;
+		return -ERESTARTSYS; // If interrupted, the read() syscall can be restarted with the same arguments,
+							 // after the interrupt is handled.
 	
 	/* 'lunix_chrdev_state_update()' must be called with the chr_dev state lock held */
 	// if there are data, return them to the user
@@ -251,6 +244,7 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
 	/* End of file */
 	/* ? */
 
+	ssize_t ret;
 
 	// went over buffer, return 0
 	if (*f_pos >= state->buf_lim){
@@ -277,14 +271,12 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
 
 	*f_pos += cnt;
 	ret = cnt;
-	/* Auto-rewind on EOF mode? */
-	/* ? */
 
+	/* Auto-rewind on EOF mode */
 	if(state->buf_lim == *f_pos) 
 		*f_pos = 0;
 out:
 	up(&state->lock);
-	/* Unlock? */
 	return ret;
 }
 
