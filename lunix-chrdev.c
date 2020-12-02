@@ -125,31 +125,33 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
 
 static int lunix_chrdev_open(struct inode *inode, struct file *filp)
 {
-	int ret;
-	unsigned int minorNum, type, sensorNum;
+    debug("entering open\n");
 
-	debug("entering\n");
-	ret = -ENODEV;
+	int ret;
 	if ((ret = nonseekable_open(inode, filp)) < 0) {
 		goto out;
 	}
+
 	/*
 	 * Associate this open file with the relevant sensor based on
 	 * the minor number of the device node [/dev/sensor<NO>-<TYPE>]
 	 */
+	unsigned int minorNum, type, sensorNum;
+	
 	minorNum = iminor(inode);
 	
-	/*Each minor number refers to a specific type of measurement
-	minorNum may have other digits set to 1 so we extract the 3 last digits for safety*/
-	type = minorNum % 8;      //Type of measurement (3 different measurement types allowed, 0 to 2)
+	/*Each minor number refers to a specific type of measurement and a specific sensor*/
+	type = minorNum % 8;      //Type of measurement (currently, 3 different measurement types allowed, 0 to 2)
 	sensorNum = minorNum / 8; //Number of the sensor device
 
 	if (type >= N_LUNIX_MSR) {  //N_LUNIX_MSR is the number of different measurment types (see lunix-chrdev.h)
 		ret = -EINVAL;
 		goto out;
 	}
+
 	/* Allocate a new Lunix chr dev state structure */
-	struct lunix_chrdev_state_struct *state = kmalloc(sizeof(struct lunix_chrdev_state_struct), GFP_KERNEL);
+	struct lunix_chrdev_state_struct *state;
+	state = kmalloc(sizeof(struct lunix_chrdev_state_struct), GFP_KERNEL);
 	/* The GFP_KERNEL flag means that the process can go to sleep while the kernel is searching
 	for the memory pages to allocate */
 
@@ -160,24 +162,24 @@ static int lunix_chrdev_open(struct inode *inode, struct file *filp)
 	}
 	
 	state->type = type;
-	state->sensor = &lunix_sensors[sensorNum];
+	state->sensor = &lunix_sensors[sensorNum]; //lunix_sensors have been initialized in lunix-module.c
 	state->buf_lim = 0; 		//Length of state->buf_data
 	state->buf_timestamp = 0;
-	sema_init(&state->lock, 1); //Initialize semaphore
+	sema_init(&state->lock, 1); //Initialize semaphore for state
 
 	/*This will be used by the other file operations of 
-	the driver in order to read and update data.*/
+	the driver in order to read and update the data.*/
 	filp->private_data = state; 
 	ret = 0;
 out:
-	debug("leaving, with ret = %d\n", ret);
+	debug("leaving open, with ret = %d\n", ret);
 	return ret;
 }
 
 static int lunix_chrdev_release(struct inode *inode, struct file *filp)
 {
 	kfree(filp->private_data);
-	debug("released file structure private data successfully \n");
+	debug("released private data successfully \n");
 	return 0;
 }
 
