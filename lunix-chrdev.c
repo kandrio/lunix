@@ -233,24 +233,15 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
 
 	ssize_t ret;
 
-	// went over buffer, return 0
-	if (*f_pos >= state->buf_lim){
-		f_pos = 0;
-		ret   = 0;
-		goto out;
-	}
-
 	/* Determine the number of cached bytes to copy to userspace */
 
-	// if pos + cnt, bytes requested by read, are greater than the read file (buf_lim)
-	// change cnt, to as many bytes as possible
-
-	if (cnt > (size_t) state->buf_lim - *f_pos) {
+	// if *f_pos + cnt (number of bytes requested by read) is greater than buf_lim,
+	// then change cnt to as many bytes as possible.
+	if (*f_pos + cnt > (size_t) state->buf_lim) {
 		cnt = (size_t) state->buf_lim - *f_pos;
 	}
-	//cnt = min(cnt, (size_t) state->buf_lim - *f_pos );
 
-	if(copy_to_user(usrbuf, state->buf_data + *f_pos, cnt)){
+	if(copy_to_user(usrbuf, state->buf_data + *f_pos, cnt)) {
 		ret = -EFAULT;
 		goto out;
 	}
