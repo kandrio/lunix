@@ -75,7 +75,7 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
     debug("locking sensor spinlock\n");
 	
 	spin_lock(&sensor->lock);		
-	/* Grabbing  the raw data quickly, and holding the spinlock for as little as possible. */
+	/* Grabbing the raw data quickly, and holding the spinlock for as little as possible. */
 	newdata = sensor->msr_data[state->type]->values[0];
 	last_update = sensor->msr_data[state->type]->last_update;
 	spin_unlock(&sensor->lock);
